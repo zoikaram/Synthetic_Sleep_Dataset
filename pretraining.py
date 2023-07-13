@@ -25,17 +25,11 @@ from Dataloader import dotdict #, dataloader
 # set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-x_train = torch.load('/esat/biomeddata/data_drop/r0779205/thesis/Datasets/update21_x_train.pt')
-y_train = torch.load('/esat/biomeddata/data_drop/r0779205/thesis/Datasets/update21_y_train.pt')
-x_train1 = torch.load('/esat/biomeddata/data_drop/r0779205/thesis/Datasets/update21_2_x_train.pt')
-y_train1 = torch.load('/esat/biomeddata/data_drop/r0779205/thesis/Datasets/update21_2_y_train.pt')
-x_train = torch.cat((x_train,x_train1[:50]), axis=0)
-del x_train1
-y_train = torch.cat((y_train, y_train1[:50]), axis=0)
-del y_train1
+x_train = torch.load('x_train.pt')
+y_train = torch.load('y_train.pt')
 
-x_val = torch.load('/esat/biomeddata/data_drop/r0779205/thesis/Datasets/update21_x_val.pt')
-y_val = torch.load('/esat/biomeddata/data_drop/r0779205/thesis/Datasets/update21_y_val.pt')
+x_val = torch.load('x_val.pt')
+y_val = torch.load('y_val.pt')
 
 
 
@@ -51,8 +45,6 @@ args = dotdict(args)
 sleepTransformer = SleepTransformer(args).to(device)
 
 loss = torch.nn.CrossEntropyLoss()
-#best_model = copy.deepcopy(sleepTransformer) #To keep the best one according to validation.
-#Auto to copy de douleuei opote grafo auto
 best_model = sleepTransformer
 optimizer = optim.Adam(sleepTransformer.parameters(), lr=0.0001, betas=(0.9, 0.999), eps=1e-07, weight_decay=0.0001)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=0.03)
@@ -86,8 +78,6 @@ logs = {"current_epoch":0,
 import wandb
 wandb_run = wandb.init(reinit=True, project="sleep_transformers", entity="zoikaram")
 
-import tqdm
-
 sleepTransformer.train()
 
 targets, preds, batch_loss, early_stop = [], [], [], False
@@ -101,8 +91,6 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
         data_eeg = x_train[batch_idx].to(device)
         labels = y_train[batch_idx].to(device)
         labels = einops.rearrange(labels, 'b m -> (b m)')
-
-        #sleepTransformer.train()
 
         # Initialize optimizer to 0, so that we don't sum up previous gradients.
         optimizer.zero_grad()
@@ -127,8 +115,6 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
         # This is optional but saves much space in gpu_memory
         torch.cuda.empty_cache()
 
-        #if batch_idx==50:
-            #break
 
         pbar_message = "Training batch {0:d}/{1:d} steps no improve {2:d} with ".format(batch_idx,
                                                                                         y_train.shape[0] - 1,
@@ -174,14 +160,9 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
                 tts = torch.cat(tts).cpu().numpy()
                 total_preds = torch.cat(v_preds, axis=0)
                 total_preds = torch.argmax(total_preds,axis=-1)
-                #total_preds = torch.cat(preds, axis=0).cpu().numpy()
                 total_preds = total_preds.cpu().detach().numpy()
-                #total_preds = torch.Tensor.numpy(total_preds, force=True)
-                #total_preds = np.argmax(axis=-1)
-                #print(total_preds)
 
                 val_metrics = {}
-                # mean_batch = np.array(batch_loss).mean(axis=0)
                 mean_batch = sum(v_batch_loss) / len(v_batch_loss)
                 val_metrics["val_loss"] = mean_batch
                 val_metrics["val_acc"] = np.equal(tts, total_preds).sum() / len(tts)
@@ -229,7 +210,7 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
                 savior["configs"] = config
 
                 try:
-                    torch.save(best_model.state_dict(), "/esat/biomeddata/data_drop/r0779205/thesis/update21_model_500.pt")
+                    torch.save(best_model.state_dict(), "pretrained_model.pt")
                 except:
                     raise Exception("Problem in model saving")
 
@@ -249,7 +230,7 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
                 savior["configs"] = config
 
                 try:
-                    torch.save(best_model.state_dict(), "/esat/biomeddata/data_drop/r0779205/thesis/update21_model_500.pt")
+                    torch.save(best_model.state_dict(), "pretrained_model.pt")
                 except:
                     raise Exception("Problem in model saving")
 
