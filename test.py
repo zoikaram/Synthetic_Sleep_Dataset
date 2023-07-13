@@ -32,8 +32,6 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 sleepTransformer = SleepTransformer(args).to(device)
 
 loss = torch.nn.CrossEntropyLoss()
-#best_model = copy.deepcopy(sleepTransformer) #To keep the best one according to validation.
-#Auto to copy de douleuei opote grafo auto
 best_model = sleepTransformer
 optimizer = optim.Adam(sleepTransformer.parameters(), lr=0.0001, betas=(0.9, 0.999), eps=1e-07, weight_decay=0.0001)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=0.03)
@@ -41,8 +39,7 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=0.03)
 loss.to(device)
 sleepTransformer.to(device)
 
-sleepTransformer.load_state_dict(torch.load('/esat/biomeddata/data_drop/r0779205/thesis/update21_pretrained_40.pt'))
-print("update21_pretrained_40")
+sleepTransformer.load_state_dict(torch.load('supervised_model.pt'))
 
 config_file = "fourier_transformer_eeg_nopos.json"
 config = utils_config.load_config(config_file)
@@ -73,8 +70,6 @@ with torch.no_grad():
 
         print(batch_idx)
 
-        #if batch_idx==100:
-            #break
 
 
 
@@ -100,12 +95,7 @@ with torch.no_grad():
 
 wandb.log({"test_metrics": test_metrics})
 
-#print(test_metrics)
-print(test_metrics["test_loss"])
-print(test_metrics["test_acc"])
-print(test_metrics["test_f1"])
-print(test_metrics["test_k"])
-print(test_metrics["test_perclassf1"])
+print(test_metrics)
 
 
 plt.figure()
@@ -113,7 +103,7 @@ sn.heatmap(df_cm, annot=True, cmap="Greens")
 plt.title('Confusion Matrix for 40 patients')
 plt.xlabel('True classes')
 plt.ylabel('Estimated classes')
-plt.savefig('/esat/biomeddata/data_drop/r0779205/thesis/cm.png')
+plt.savefig('cm.png')
 
 vector = torch.arange(0, len(labels)).cpu()
 pred_max = torch.argmax(pred, axis=-1)
@@ -124,4 +114,4 @@ plt.title('Hypnogram')
 plt.xlabel('Epochs')
 plt.ylabel('Stages')
 plt.legend(['Real data','Predictions Model3'])
-plt.savefig('/esat/biomeddata/data_drop/r0779205/thesis/hypnogram.png')
+plt.savefig('hypnogram.png')

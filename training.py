@@ -12,9 +12,6 @@ import torch
 from sklearn.metrics import f1_score, cohen_kappa_score, roc_auc_score, confusion_matrix
 import random
 
-x_val = torch.load('/esat/biomeddata/data_drop/r0779205/thesis/Datasets/x_val.pt')
-y_val = torch.load('/esat/biomeddata/data_drop/r0779205/thesis/Datasets/y_val.pt')
-
 
 args = {"dmodel": 128,
         "heads": 8,
@@ -33,8 +30,6 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 sleepTransformer = SleepTransformer(args).to(device)
 
 loss = torch.nn.CrossEntropyLoss()
-#best_model = copy.deepcopy(sleepTransformer) #To keep the best one according to validation.
-#Auto to copy de douleuei opote grafo auto
 best_model = sleepTransformer
 optimizer = optim.Adam(sleepTransformer.parameters(), lr=0.0001, betas=(0.9, 0.999), eps=1e-07, weight_decay=0.0001)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=0.03)
@@ -42,7 +37,6 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=0.03)
 loss.to(device)
 sleepTransformer.to(device)
 
-#sleepTransformer.load_state_dict(torch.load('/esat/biomeddata/data_drop/r0779205/thesis/first_model.pt'))
 
 config_file = "fourier_transformer_eeg_nopos.json"
 config = utils_config.load_config(config_file)
@@ -78,7 +72,6 @@ targets, preds, batch_loss, early_stop = [], [], [], False
 val_loss = {"total":0}
 saved_at_step, prev_epoch_time = 0, 0
 train_loss = []
-#train_loss = torch.load("/esat/biomeddata/data_drop/r0779205/thesis/first_train_loss.pt")
 
 for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.max_epoch):
     #pbar = tqdm.tqdm(enumerate(dataloader.train_loader), desc="Training", leave=None, position=0)
@@ -113,8 +106,6 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
         # This is optional but saves much space in gpu_memory
         torch.cuda.empty_cache()
 
-        if batch_idx==48:
-            break
 
         pbar_message = "Training batch {0:d}/{1:d} steps no improve {2:d} with ".format(batch_idx,
                                                                                         len(dataloader.train_loader) - 1,
@@ -147,14 +138,9 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
             tts, v_preds, inits, v_batch_loss = [], [], [], []
             # hidden = None
             with torch.no_grad():
-                #for batch_idx, data in enumerate(dataloader.valid_loader):
-                    #data_eeg = data[0][0].to(device)
-                    #labels = data[1].to(device)
-                    #labels = einops.rearrange(labels, 'b m -> (b m)')
-
-                for batch_idx in range(y_val.shape[0]):
-                    data_eeg = x_val[batch_idx].to(device)
-                    labels = y_val[batch_idx].to(device)
+                for batch_idx, data in enumerate(dataloader.valid_loader):
+                    data_eeg = data[0][0].to(device)
+                    labels = data[1].to(device)
                     labels = einops.rearrange(labels, 'b m -> (b m)')
 
                     pred = sleepTransformer(data_eeg).to(device)
@@ -170,11 +156,7 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
                 tts = torch.cat(tts).cpu().numpy()
                 total_preds = torch.cat(v_preds, axis=0)
                 total_preds = torch.argmax(total_preds,axis=-1)
-                #total_preds = torch.cat(preds, axis=0).cpu().numpy()
                 total_preds = total_preds.cpu().detach().numpy()
-                #total_preds = torch.Tensor.numpy(total_preds, force=True)
-                #total_preds = np.argmax(axis=-1)
-                #print(total_preds)
 
                 val_metrics = {}
                 # mean_batch = np.array(batch_loss).mean(axis=0)
@@ -225,9 +207,8 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
                 savior["configs"] = config
 
                 try:
-                    torch.save(best_model.state_dict(), "/esat/biomeddata/data_drop/r0779205/thesis/nopre_50.pt")
-                    #torch.save(train_loss, "/esat/biomeddata/data_drop/r0779205/thesis/train_loss_nopre_500_3.pt")
-                    #torch.save(savior, "/esat/biomeddata/data_drop/r0779205/thesis/nopre_ep40.pth.tar")
+                    torch.save(best_model.state_dict(), "no_pretrained_model.pt")
+                    torch.save(savior, config.model.save_dir)
                 except:
                     raise Exception("Problem in model saving")
 
@@ -247,9 +228,8 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
                 savior["configs"] = config
 
                 try:
-                    torch.save(best_model.state_dict(), "/esat/biomeddata/data_drop/r0779205/thesis/nopre_50.pt")
-                    #torch.save(train_loss, "/esat/biomeddata/data_drop/r0779205/thesis/train_loss_nopre_500_3.pt")
-                    #torch.save(savior, "/esat/biomeddata/data_drop/r0779205/thesis/nopre_ep40.pth.tar")
+                    torch.save(best_model.state_dict(), "no_pretrained_model.pt")
+                    torch.save(savior, config.model.save_dir)
                 except:
                     raise Exception("Problem in model saving")
 

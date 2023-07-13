@@ -12,9 +12,6 @@ import torch
 from sklearn.metrics import f1_score, cohen_kappa_score, roc_auc_score, confusion_matrix
 import random
 
-x_val = torch.load('/esat/biomeddata/data_drop/r0779205/thesis/Datasets/x_val.pt')
-y_val = torch.load('/esat/biomeddata/data_drop/r0779205/thesis/Datasets/y_val.pt')
-
 
 args = {"dmodel": 128,
         "heads": 8,
@@ -32,11 +29,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 sleepTransformer = SleepTransformer(args).to(device)
 
-sleepTransformer.load_state_dict(torch.load('/esat/biomeddata/data_drop/r0779205/thesis/update12_model_500.pt'))
+sleepTransformer.load_state_dict(torch.load('pretrained_model.pt'))
 
 loss = torch.nn.CrossEntropyLoss()
-#best_model = copy.deepcopy(sleepTransformer) #To keep the best one according to validation.
-#Auto to copy de douleuei opote grafo auto
 best_model = sleepTransformer
 optimizer = optim.Adam(sleepTransformer.parameters(), lr=0.0001, betas=(0.9, 0.999), eps=1e-07, weight_decay=0.0001)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=0.03)
@@ -77,19 +72,15 @@ sleepTransformer.train()
 targets, preds, batch_loss, early_stop = [], [], [], False
 val_loss = {"total":0}
 saved_at_step, prev_epoch_time = 0, 0
-exp1_train_loss = []
-#exp1_train_loss = torch.load("/esat/biomeddata/data_drop/r0779205/thesis/exp2_train_loss_50ep.pt")
 
 for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.max_epoch):
     #pbar = tqdm.tqdm(enumerate(dataloader.train_loader), desc="Training", leave=None, position=0)
     for batch_idx, data in enumerate(dataloader.train_loader):
         # Get the data and labels to gpu
         data_eeg = data[0][0].to(device)
-        #data_eeg = data_eeg[:,:,:,:,:25]
         labels = data[1].to(device)
         labels = einops.rearrange(labels, 'b m -> (b m)')
 
-        #sleepTransformer.train()
 
         # Initialize optimizer to 0, so that we don't sum up previous gradients.
         optimizer.zero_grad()
@@ -114,8 +105,6 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
         # This is optional but saves much space in gpu_memory
         torch.cuda.empty_cache()
 
-        if batch_idx==2:
-            break
 
         pbar_message = "Training batch {0:d}/{1:d} steps no improve {2:d} with ".format(batch_idx,
                                                                                         len(dataloader.train_loader) - 1,
@@ -129,7 +118,6 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
                 logs["current_step"] // config.early_stopping.validate_every >= config.early_stopping.validate_after and \
                 batch_idx != 0:
 
-            exp1_train_loss = np.append(exp1_train_loss, mean_batch)
 
             tts = torch.cat(targets).cpu().numpy().flatten()
             total_preds = np.concatenate(preds, axis=0).argmax(axis=-1)
@@ -147,13 +135,9 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
             tts, v_preds, inits, v_batch_loss = [], [], [], []
             # hidden = None
             with torch.no_grad():
-                #for val_idx, data in enumerate(dataloader.valid_loader):
-                    #data_eeg = data[0][0].to(device)
-                    #labels = data[1].to(device)
-                    #labels = einops.rearrange(labels, 'b m -> (b m)')
-                for batch_idx in range(y_val.shape[0]):
-                    data_eeg = x_val[batch_idx].to(device)
-                    labels = y_val[batch_idx].to(device)
+                for val_idx, data in enumerate(dataloader.valid_loader):
+                    data_eeg = data[0][0].to(device)
+                    labels = data[1].to(device)
                     labels = einops.rearrange(labels, 'b m -> (b m)')
 
                     pred = sleepTransformer(data_eeg).to(device)
@@ -169,11 +153,7 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
                 tts = torch.cat(tts).cpu().numpy()
                 total_preds = torch.cat(v_preds, axis=0)
                 total_preds = torch.argmax(total_preds,axis=-1)
-                #total_preds = torch.cat(preds, axis=0).cpu().numpy()
                 total_preds = total_preds.cpu().detach().numpy()
-                #total_preds = torch.Tensor.numpy(total_preds, force=True)
-                #total_preds = np.argmax(axis=-1)
-                #print(total_preds)
 
                 val_metrics = {}
                 # mean_batch = np.array(batch_loss).mean(axis=0)
@@ -224,9 +204,8 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
                 savior["configs"] = config
 
                 try:
-                    torch.save(best_model.state_dict(), "/esat/biomeddata/data_drop/r0779205/thesis/update12_3_pretrained_2.pt")
-                    #torch.save(exp1_train_loss, "/esat/biomeddata/data_drop/r0779205/thesis/update1_3_train_loss_40.pt")
-                    #torch.save(savior, config.model.save_dir)
+                    torch.save(best_model.state_dict(), "supervised_model.pt")
+                    torch.save(savior, config.model.save_dir)
                 except:
                     raise Exception("Problem in model saving")
 
@@ -246,9 +225,8 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
                 savior["configs"] = config
 
                 try:
-                    torch.save(best_model.state_dict(), "/esat/biomeddata/data_drop/r0779205/thesis/update12_3_pretrained_2.pt")
-                    #torch.save(exp1_train_loss, "/esat/biomeddata/data_drop/r0779205/thesis/update19_3_train_loss_40.pt")
-                    #torch.save(savior, config.model.save_dir)
+                    torch.save(best_model.state_dict(), "supervised_model.pt")
+                    torch.save(savior, config.model.save_dir)
                 except:
                     raise Exception("Problem in model saving")
 
@@ -273,6 +251,6 @@ for logs["current_epoch"] in range(logs["current_epoch"], config.early_stopping.
 
 
         logs["current_step"] += 1
-    #if batch_idx >= 40: break
+
     if early_stop: break
 
